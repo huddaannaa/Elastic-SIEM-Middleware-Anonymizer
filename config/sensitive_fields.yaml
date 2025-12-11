@@ -1,0 +1,18 @@
+sensitive_fields:
+  - path: "user.name"
+    prefix: "USER"
+  - path: "user.email"
+    prefix: "EMAIL"
+  - path: "host.name"
+    prefix: "HOST"
+  - path: "source.ip"
+    prefix: "SRCIP"
+  - path: "destination.ip"
+    prefix: "DSTIP"
+  - path: "client.ip"
+    prefix: "CLIENTIP"
+  - path: "server.ip"
+    prefix: "SERVERIP"
+  - path: "url.full"
+    prefix: "URL"
+
