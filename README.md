@@ -433,11 +433,4 @@ For production, you may also want:
 
 ---
 
-## 🧭 Roadmap Ideas
-
-* Optional indexing of analysis into Elasticsearch / OpenSearch.
-* Per-source rate limiting and usage metrics.
-* Better default patterns for secrets and tokens.
-* Test suite with sample SIEM / Wazuh / ECS alerts.
-
 ---
