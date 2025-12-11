@@ -1,0 +1,57 @@
+openai:
+  model: gpt-4.1-mini
+  temperature: 0.2
+  timeout_seconds: 15
+
+server:
+  host: 0.0.0.0
+  port: 8000
+  log_level: INFO
+
+auth:
+  # Header name Elastic will send
+  header_name: "X-API-Key"
+
+anonymization:
+  sensitive_fields_file: "/config/sensitive_fields.yaml"
+  regex_patterns_file: "/config/regex_patterns.yaml"
+  free_text_fields:
+    - message
+    - log.original
+    - event.original
+
+  # HARD allow-list: ONLY these fields are sent to ChatGPT
+  allowed_fields:
+    - "@timestamp"
+    - "event.action"
+    - "event.category"
+    - "event.type"
+    - "rule.name"
+    - "rule.id"
+    - "kibana.alert.severity"
+    - "kibana.alert.risk_score"
+    - "host.name"
+    - "source.ip"
+    - "destination.ip"
+    - "user.name"
+    - "message"
+
+prompt:
+  system: "You are a helpful SOC assistant."
+  template: |
+    You are a senior SOC analyst assistant.
+
+    You receive an anonymized Elastic SIEM alert in JSON.
+    All usernames, IPs, hosts and emails are replaced with tokens like USER_xxx, IP_xxx, HOST_xxx.
+
+    Tasks:
+    1. Briefly explain what this alert is about (1–2 sentences).
+    2. Assess the severity (Low/Medium/High/Critical) and justify.
+    3. Suggest 3–5 next investigation steps.
+    4. Suggest 2–3 detection/hardening ideas based on the pattern.
+
+    Respond in clear bullet points and keep it concise.
+
+    Alert JSON:
+    {alert_json}
+
