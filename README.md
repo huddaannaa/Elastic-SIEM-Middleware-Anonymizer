@@ -1,3 +1,8 @@
+Nice, this is already a strong README. I’ll keep everything you have, clean up tiny formatting issues, and add more explanation + context sections so it feels “complete” for GitHub.
+
+Here’s an expanded `README.md` you can drop in:
+
+````markdown
 # SIEM → ChatGPT Anonymizing Middleware
 
 > Privacy-preserving middleware for sending SIEM alerts to ChatGPT / OpenAI.  
@@ -21,7 +26,28 @@ This service sits between your **SIEM** and **ChatGPT**:
    - the **anonymized alert**, and
    - the **model’s analysis** (summary, severity, next steps, etc.).
 
-Designed for SOC teams who want AI assistance without leaking sensitive data.
+Designed for SOC teams who want AI assistance **without leaking sensitive data**.
+
+---
+
+## 🤔 Why this exists
+
+LLMs are great at:
+
+- Explaining complex alerts in simple language
+- Suggesting investigation steps and hypotheses
+- Highlighting related techniques, tactics, and potential root causes
+
+…but sending raw SIEM alerts directly to a public API can expose:
+
+- Internal hostnames and IPs
+- Usernames, emails, and URLs
+- Environment-specific configuration and identifiers
+
+This project implements a **“redact → then ask”** pattern:
+
+- You keep full control of what leaves your environment.
+- The model only sees **tokens** (e.g. `USER_123`, `IP_abc`) and a limited set of allowed fields.
 
 ---
 
@@ -44,6 +70,45 @@ Designed for SOC teams who want AI assistance without leaking sensitive data.
 ````
 
 Any system that can POST JSON with a header can use this.
+
+---
+
+## 🔍 How it works (step-by-step)
+
+1. **Your SIEM (or Wazuh/Elastic/Logstash) fires an alert**
+
+   * It calls `POST /analyze_alert` on this middleware.
+   * It includes an API key header (e.g. `X-API-Key: <token>`).
+
+2. **Middleware authenticates the request**
+
+   * If the key is missing or wrong → returns `401 Unauthorized`.
+
+3. **Alert is anonymized**
+
+   * For each configured `sensitive_fields` path, values are replaced with tokens like:
+
+     * `USER_1f3a4b8c9d`
+     * `SRCIP_0a12bc34de`
+   * Free-text fields (e.g. `message`) are scanned with configured regex patterns (IP, email, hostnames) and replaced with tokens.
+
+4. **Hard allow-list is applied**
+
+   * Only fields in `anonymization.allowed_fields` are serialized into the prompt.
+   * Any new or unexpected fields are **dropped by default**.
+
+5. **Prompt is built and sent to OpenAI**
+
+   * An anonymized view of the alert is injected into the prompt template.
+   * The OpenAI Chat Completions API is called with your chosen model.
+
+6. **Response is returned to the caller**
+
+   * JSON includes:
+
+     * `anonymized_alert`
+     * `analysis` (model output)
+     * `alert_id` (if present in the original alert document)
 
 ---
 
@@ -83,6 +148,8 @@ APP_PORT=8000
 >
 > * Never commit real keys.
 > * Add `.env` to `.gitignore`.
+
+You can generate `.env` from `.env.example` and fill in your values.
 
 ---
 
@@ -148,7 +215,7 @@ prompt:
     {alert_json}
 ```
 
-You can adapt `allowed_fields` to your SIEM’s schema (Elastic ECS, Wazuh, etc.).
+You can adapt `allowed_fields` to your SIEM’s schema (Elastic ECS, Wazuh, custom fields, etc.).
 
 ---
 
@@ -176,7 +243,10 @@ sensitive_fields:
     prefix: "URL"
 ```
 
-Same input + same prefix → same token every time (useful for correlation).
+**Deterministic tokens**
+
+* Same input + same prefix → same token every time.
+* This keeps anonymity but still lets you correlate events involving the same user/host/IP within the model’s view.
 
 ---
 
@@ -199,7 +269,14 @@ patterns:
     token_prefix: "HOST"
 ```
 
-Extend with hashes, ticket IDs, phone numbers, internal URLs, etc. as needed.
+Extend with:
+
+* Hashes (MD5/SHA-1/SHA-256)
+* Ticket IDs (Jira, ServiceNow)
+* Phone numbers
+* Internal service URLs
+
+as needed for your environment.
 
 ---
 
@@ -333,7 +410,7 @@ Sample response (simplified):
     "user": { "name": "USER_0f3d..." },
     "message": "User USER_0f3d... logged in via RDP from SRCIP_2f1a... to DSTIP_4c9e..."
   },
-  "analysis": "• Short summary...\n• Severity: High...\n• Next steps: ...",
+  "analysis": "• Short summary...\n• Severity: High...\n• Next steps: ..."
 }
 ```
 
@@ -388,6 +465,8 @@ if __name__ == "__main__":
 </integration>
 ```
 
+This sends high-severity Wazuh alerts directly to the middleware.
+
 ---
 
 ### Example B – Elastic Security HTTP Connector
@@ -400,7 +479,7 @@ In Elastic / Kibana:
    * Method: `POST`
    * Header: `X-API-Key: super-secret-token`
 
-2. In the rule action body:
+2. In the rule action body (example):
 
 ```json
 {
@@ -408,7 +487,7 @@ In Elastic / Kibana:
 }
 ```
 
-(Adjust `context` / `ctx` based on version.)
+(Adjust `context` / `ctx` based on your Elastic version.)
 
 ---
 
@@ -425,12 +504,52 @@ This middleware is designed around:
 * **API-key auth**
   `/analyze_alert` is protected by a shared secret in the header.
 
-For production, you may also want:
+Additional recommended hardening in production:
 
-* Network-level restrictions (firewall / IP allow-lists).
-* Rate limiting and circuit breakers for noisy rules.
-* Secret detectors (JWTs, API keys, cloud credentials) that block rather than tokenize.
+* Network-level restrictions (firewall / IP allow-lists)
+* Rate limiting and circuit breakers for noisy rules
+* Secret detectors (JWTs, API keys, cloud credentials) that **block** instead of tokenizing
+* Centralized logging (without raw alert bodies) for auditability
 
 ---
+
+## ⚠️ Limitations & responsibilities
+
+* This project **reduces risk**, but does not magically guarantee that no sensitive data ever leaves.
+* Regex and field lists may miss new formats or fields; you should:
+
+  * Review your SIEM schema
+  * Add patterns and sensitive paths over time
+* You are responsible for:
+
+  * Compliance with your organization’s data policies
+  * Legal/regulatory constraints for using external AI services
+
+Treat this as a **privacy guardrail**, not a complete DLP solution.
+
+---
+
+## 🧭 Roadmap Ideas
+
+Potential future enhancements:
+
+* Optional indexing of analysis into Elasticsearch / OpenSearch.
+* Per-source rate limiting and usage metrics.
+* Better default patterns for secrets and tokens.
+* Test suite with sample SIEM / Wazuh / ECS alerts.
+* Configurable “no-send” rules (block certain alerts entirely).
+
+---
+
+## 🤝 Contributing
+
+Pull requests and issues are welcome.
+
+Ideas to contribute:
+
+* New anonymization rules for specific products or log sources
+* Additional SIEM integration examples
+* Improved default prompt templates
+* Tests and CI configs
 
 ---
