@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  siem-gpt-middleware:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: siem-gpt-middleware
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      MIDDLEWARE_API_KEY: ${MIDDLEWARE_API_KEY}
+      APP_CONFIG_FILE: "/config/config.yaml"
+    volumes:
+      - ./config:/config:ro
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    restart: unless-stopped
+
