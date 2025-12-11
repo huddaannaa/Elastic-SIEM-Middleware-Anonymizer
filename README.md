@@ -1,8 +1,4 @@
-Nice, this is already a strong README. I’ll keep everything you have, clean up tiny formatting issues, and add more explanation + context sections so it feels “complete” for GitHub.
 
-Here’s an expanded `README.md` you can drop in:
-
-````markdown
 # SIEM → ChatGPT Anonymizing Middleware
 
 > Privacy-preserving middleware for sending SIEM alerts to ChatGPT / OpenAI.  
